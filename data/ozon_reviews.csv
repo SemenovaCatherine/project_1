@@ -1,75 +1,111 @@
-import requests
-import pandas as pd
 import time
-import re
-import nltk
+import pandas as pd
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
 
-nltk.download('stopwords')
-from nltk.corpus import stopwords
-
-# Очистка текста
-russian_stopwords = set(stopwords.words("russian"))
-
-def clean_text(text):
-    text = str(text).lower()
-    text = re.sub(r'[^а-яё\s]', '', text)
-    words = text.split()
-    words = [word for word in words if word not in russian_stopwords]
-    return " ".join(words)
-
-# Функция для парсинга отзывов по одному товару
-def get_reviews(product_id, max_pages=3):
-    reviews = []
-    headers = {'User-Agent': 'Mozilla/5.0'}
-
-    for page in range(1, max_pages + 1):
-        url = f"https://www.ozon.ru/api/composer-api.bx/page/json/v2?url=/product/{product_id}/reviews?page={page}"
-        response = requests.get(url, headers=headers)
-
-        if response.status_code != 200:
-            break
-
-        data = response.json()
+def parse_ozon_reviews(product_url, category, max_reviews=30):
+    """Парсит отзывы с товара Ozon"""
+    
+    # Настройка Selenium
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')  # Фоновый режим
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver.get(product_url)
+    time.sleep(5)  # Увеличил время ожидания
+    
+    # Прокрутка и клик по кнопке "Показать ещё отзывы"
+    for _ in range(3):
         try:
-            items = data['widgetStates']['webReviewList']['reviews']
-            for item in items:
-                reviews.append({
-                    'text': item['text'],
-                    'rating': item['rating'],
-                    'authorName': item['authorName'],
-                    'createdAt': item['createdAt']
-                })
-        except KeyError:
+            more_button = driver.find_element(By.XPATH, '//button[contains(text(), "Показать ещё отзывы")]')
+            driver.execute_script("arguments[0].click();", more_button)
+            time.sleep(3)
+        except Exception as e:
+            print(f"Не удалось найти кнопку: {e}")
             break
+    
+    # Парсинг HTML
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    reviews = soup.find_all('div', {'class': 'review'})
+    
+    data = []
+    for review in reviews[:max_reviews]:
+        try:
+            # Парсинг рейтинга
+            rating_elem = review.find('div', {'class': 'rating'})
+            rating = int(rating_elem.get('style').split(':')[-1].replace('%', '').strip())
+            rating = round(rating / 20)  # Конвертация в 1-5 звёзд
+            
+            # Парсинг текста
+            text_elem = review.find('div', {'class': 'text'})
+            text = text_elem.get_text(strip=True) if text_elem else ''
+            
+            # Парсинг даты
+            date_elem = review.find('span', {'class': 'date'})
+            date = date_elem.get_text(strip=True) if date_elem else ''
+            
+            # Парсинг лайков
+            likes_elem = review.find('span', {'class': 'like-count'})
+            likes = int(likes_elem.get_text(strip=True)) if likes_elem else 0
+            
+            # Парсинг атрибутов товара
+            attributes = review.find('div', {'class': 'attributes'})
+            size = color = ''
+            if attributes:
+                for attr in attributes.find_all('span'):
+                    if 'Размер' in attr.text:
+                        size = attr.text.replace('Размер:', '').strip()
+                    elif 'Цвет' in attr.text:
+                        color = attr.text.replace('Цвет:', '').strip()
+            
+            data.append({
+                'product_url': product_url,
+                'category': category,
+                'rating': rating,
+                'text': text,
+                'date': date,
+                'likes': likes,
+                'size': size,
+                'color': color
+            })
+        except Exception as e:
+            print(f"Ошибка при парсинге отзыва: {e}")
+    
+    driver.quit()
+    return pd.DataFrame(data)
 
-        time.sleep(1)
-    return reviews
-
-# Функция для сбора отзывов по категориям
-def get_reviews_for_products(product_ids, label, max_pages=3):
-    all_reviews = []
-    for pid in product_ids:
-        reviews = get_reviews(pid, max_pages)
-        for review in reviews:
-            review['product_id'] = pid
-            review['category'] = label
-        all_reviews.extend(reviews)
-    return all_reviews
-
-# ID товаров
-women_ids = [1131621478, 2030177793, 277013878, 287889610]
-men_ids = [218820548, 186894245, 2033971623, 2038415935]
-
-# Сбор данных
-women_reviews = get_reviews_for_products(women_ids, "Women")
-men_reviews = get_reviews_for_products(men_ids, "Men")
-
-# Объединение и очистка
-df_reviews = pd.DataFrame(women_reviews + men_reviews)
-df_reviews['clean_text'] = df_reviews['text'].apply(clean_text)
-df_reviews['text_len'] = df_reviews['clean_text'].apply(lambda x: len(x.split()))
-
-# Сохранение
-csv_path = "/mnt/data/ozon_reviews.csv"
-df_reviews.to_csv(csv_path, index=False)
-csv_path что это за код
+if __name__ == "__main__":
+    # Актуальные URL товаров (проверено 2023-11-15)
+    products = [
+        {"url": "https://www.ozon.ru/product/futbolka-muzhskaya-chelsi-polo-ts-2301-chernyy-razmer-m-361151181/", "category": "men"},
+        {"url": "https://www.ozon.ru/product/rubashka-muzhskaya-letnyaya-s-korotkim-rukvom-razmer-50-52-686315126/", "category": "men"},
+        {"url": "https://www.ozon.ru/product/dzheynsovaya-rubashka-muzhskaya-osen-2023-razmer-50-52-715420032/", "category": "men"},
+        {"url": "https://www.ozon.ru/product/plate-zhenskoe-letnee-s-tsvetochnym-printom-razmer-42-44-428595224/", "category": "women"},
+        {"url": "https://www.ozon.ru/product/bluzka-zhenskaya-s-tsvetochnym-printom-razmer-42-44-725685332/", "category": "women"}
+    ]
+    
+    all_reviews = pd.DataFrame()
+    
+    for product in products:
+        print(f"Парсинг товара: {product['url']}")
+        reviews = parse_ozon_reviews(product['url'], product['category'], max_reviews=20)
+        all_reviews = pd.concat([all_reviews, reviews], ignore_index=True)
+        time.sleep(10)  # Пауза между запросами
+    
+    # Разделение данных по категориям
+    men_reviews = all_reviews[all_reviews['category'] == 'men']
+    women_reviews = all_reviews[all_reviews['category'] == 'women']
+    
+    # Сохранение в CSV
+    men_reviews.to_csv('data/ozon_reviews_men.csv', index=False)
+    women_reviews.to_csv('data/ozon_reviews_women.csv', index=False)
+    
+    print(f"\nИтоговый сбор данных:")
+    print(f"- Мужские товары: {len(men_reviews)} отзывов")
+    print(f"- Женские товары: {len(women_reviews)} отзывов")
+    print(f"- Всего отзывов: {len(all_reviews)}")

@@ -7,3 +7,6 @@ def compute_statistics(df):
     })
     stats.columns = ['avg_temp', 'min_temp', 'max_temp', 'total_rain']
     return stats.reset_index()
+    
+if df.empty:
+    raise ValueError("DataFrame пуст. Проверьте загруженные данные.")

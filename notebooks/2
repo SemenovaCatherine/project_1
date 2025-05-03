@@ -1,0 +1,211 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 🌦️ Анализ погодных данных\n",
+    "### Сравнение Москвы, Санкт-Петербурга и Самары\n",
+    "###### Последнее обновление: {{current_date}}"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Импорт библиотек\n",
+    "import pandas as pd\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "import plotly.express as px\n",
+    "from IPython.display import display, HTML\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')\n",
+    "\n",
+    "# Настройки стиля\n",
+    "plt.style.use('seaborn')\n",
+    "sns.set_palette(\"husl\")\n",
+    "pd.options.display.float_format = '{:.1f}'.format\n",
+    "\n",
+    "display(HTML(\"\"\"\n",
+    "<style>\n",
+    "    .header {\n",
+    "        color: #2e86c1;\n",
+    "        font-family: Verdana;\n",
+    "    }\n",
+    "    .plot-title {\n",
+    "        color: #5d6d7e;\n",
+    "        font-weight: bold;\n",
+    "        font-size: 16px;\n",
+    "    }\n",
+    "</style>\n",
+    "\"\"\"))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 📊 Основные показатели"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Создаем интерактивный график температуры\n",
+    "fig_temp = px.line(weather, x='datetime', y='temp_c', color='city', \n",
+    "                  title='<b>Суточная температура по городам</b>',\n",
+    "                  labels={'temp_c':'Температура (°C)', 'datetime':'Дата'},\n",
+    "                  template='plotly_white',\n",
+    "                  height=500)\n",
+    "fig_temp.update_layout(hovermode=\"x unified\")\n",
+    "fig_temp.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 🌧️ Анализ осадков"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Круговые диаграммы осадков по городам\n",
+    "fig_pie = px.pie(weather.groupby('city')['rain_mm'].sum().reset_index(), \n",
+    "                 values='rain_mm', names='city',\n",
+    "                 title='<b>Распределение осадков по городам</b>',\n",
+    "                 hole=0.3,\n",
+    "                 color_discrete_sequence=px.colors.sequential.RdBu)\n",
+    "fig_pie.update_traces(textposition='inside', textinfo='percent+label')\n",
+    "fig_pie.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 🌬️ Ветровые условия"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Wind rose chart\n",
+    "fig_wind = px.bar_polar(weather, r=\"wind_speed_kmh\", theta=\"datetime\",\n",
+    "                        color=\"city\", template=\"plotly_dark\",\n",
+    "                        title=\"<b>Роза ветров по городам</b>\",\n",
+    "                        color_discrete_sequence=px.colors.qualitative.Pastel)\n",
+    "fig_wind.update_layout(polar=dict(radialaxis=dict(visible=True)))\n",
+    "fig_wind.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 📈 Сравнение метеопараметров"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Parallel coordinates plot\n",
+    "fig_parallel = px.parallel_coordinates(weather, \n",
+    "                                     color=\"temp_c\",\n",
+    "                                     dimensions=['temp_c', 'humidity', 'pressure', 'wind_speed_kmh'],\n",
+    "                                     color_continuous_scale=px.colors.diverging.Tealrose,\n",
+    "                                     title=\"<b>Параллельные координаты метеопараметров</b>\")\n",
+    "fig_parallel.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 📅 Погодные условия по дням"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Calendar heatmap\n",
+    "weather['date'] = weather['datetime'].dt.date\n",
+    "daily_weather = weather.groupby(['city', 'date']).agg({\n",
+    "    'temp_c': 'mean',\n",
+    "    'rain_mm': 'sum'\n",
+    "}).reset_index()\n",
+    "\n",
+    "fig_calendar = px.density_heatmap(daily_weather, x=\"date\", y=\"city\", \n",
+    "                                z=\"temp_c\", \n",
+    "                                histfunc=\"avg\",\n",
+    "                                title=\"<b>Тепловая карта температур по дням</b>\",\n",
+    "                                color_continuous_scale=\"viridis\")\n",
+    "fig_calendar.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 🔍 Выводы"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "1. **Температурный режим**:\n",
+    "   - Самая высокая температура в Самаре\n",
+    "   - Самые низкие показатели в Санкт-Петербурге\n",
+    "   \n",
+    "2. **Осадки**:\n",
+    "   - Наибольшее количество осадков зафиксировано в Санкт-Петербурге\n",
+    "   - В Самаре самый сухой климат\n",
+    "   \n",
+    "3. **Ветровые условия**:\n",
+    "   - Самые сильные ветра характерны для Москвы\n",
+    "   - В Самаре наиболее спокойные условия"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}

@@ -24,3 +24,6 @@ def fetch_weather_data(city):
         records.append(record)
     
     return pd.DataFrame(records)
+    
+if response.status_code != 200:
+    raise Exception(f"Ошибка при запросе к API: {response.status_code}")

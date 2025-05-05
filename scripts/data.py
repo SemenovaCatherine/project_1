@@ -1,43 +1,42 @@
 import requests
 import pandas as pd
 from datetime import datetime
-from script.config import API_KEY
+from config import API_KEY
+from google.colab import files 
 
-def fetch_weather_data(city):
-    try:
-        url = 'http://api.openweathermap.org/data/2.5/forecast'
-        params = {
-            'q': city,
-            'appid': API_KEY,
-            'units': 'metric'
-        }
-        response = requests.get(url, params=params)
-        
-        # Проверяем статус ответа перед обработкой данных
-        response.raise_for_status()  # Поймает ошибки HTTP, такие как 404, 500
+API_KEY = "e19341656f7539e9ac6553c950159dc4" 
+CITIES = {
+    "Санкт-Петербург": {"lat": 59.93, "lon": 30.31},
+    "Москва": {"lat": 55.75, "lon": 37.62},
+    "Самара": {"lat": 53.20, "lon": 50.15}
+}
 
-        data = response.json()
+for city, coords in CITIES.items():
+    url = (
+        f"https://api.openweathermap.org/data/2.5/forecast"
+        f"?lat={coords['lat']}&lon={coords['lon']}&appid={API_KEY}&units=metric&lang=ru"
+    )
+    
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Ошибка при получении данных для {city}: {response.status_code}")
+        continue
+    
+    data = response.json()
 
-        # Проверка на корректность данных
-        if 'list' not in data:
-            raise ValueError(f"Invalid data structure: 'list' not found for {city}")
+    df = pd.DataFrame([{
+        "datetime": pd.to_datetime(entry["dt"], unit="s"),
+        "temp_c": entry["main"]["temp"],
+        "feels_like_c": entry["main"]["feels_like"],
+        "humidity": entry["main"]["humidity"],
+        "pressure": entry["main"]["pressure"],
+        "wind_speed_kmh": round(entry["wind"]["speed"] * 3.6, 1),
+        "weather": entry["weather"][0]["description"],
+        "rain_mm": entry.get("rain", {}).get("3h", 0)
+    } for entry in data.get("list", [])])
 
-        records = []
-        for entry in data['list']:
-            record = {
-                'datetime': datetime.fromtimestamp(entry['dt']),
-                'temperature': entry['main']['temp'],
-                'rain': entry.get('rain', {}).get('3h', 0.0),
-                'city': city
-            }
-            records.append(record)
+    filename = f"weather_{city}_realtime.csv"
+    df.to_csv(filename, index=False)
+    print(f"Файл для {city} сохранён!")
 
-        return pd.DataFrame(records)
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data for {city}: {e}")
-        return pd.DataFrame()  # Возвращаем пустой DataFrame в случае ошибки
-
-    except ValueError as e:
-        print(f"Data error for {city}: {e}")
-        return pd.DataFrame()  # Возвращаем пустой DataFrame в случае ошибки в данных
+    files.download(filename)  # Автоскачивание

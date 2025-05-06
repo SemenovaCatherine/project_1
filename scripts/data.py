@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 from datetime import datetime
-from config import API_KEY
+from scripts.config import API_KEY
 from google.colab import files 
 
 API_KEY = "e19341656f7539e9ac6553c950159dc4" 

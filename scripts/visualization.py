@@ -1,143 +1,104 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
+import plotly.express as px
+from wordcloud import WordCloud
 import os
-from datetime import datetime
 
-# Создаем папку для графиков
+# Создаем папку для сохранения графиков
 os.makedirs('dashboard/figures', exist_ok=True)
 
-def load_and_prepare_data():
-    # Загрузка данных
-    cities = ['Москва', 'Санкт-Петербург', 'Самара']
-    dfs = []
-    
-    for city in cities:
-        filename = f'weather_{city}_realtime.csv'
-        df = pd.read_csv(filename)
-        df['city'] = city
-        df['datetime'] = pd.to_datetime(df['datetime'])
-        dfs.append(df)
-    
-    return pd.concat(dfs, ignore_index=True)
-
-def plot_temperature(df):
+def plot_temperature_trend(df):
+    """1. Линейный график температуры (Seaborn)"""
     plt.figure(figsize=(14, 7))
     sns.set_style("darkgrid", {"grid.color": ".6", "grid.linestyle": ":"})
     
-    # График температуры
-    ax = sns.lineplot(data=df, x='datetime', y='temp_c', hue='city', 
-                      palette=['#1f77b4', '#ff7f0e', '#2ca02c'], linewidth=2)
+    ax = sns.lineplot(
+        data=df, 
+        x='datetime', 
+        y='temp_c', 
+        hue='city',
+        palette=['#1f77b4', '#ff7f0e', '#2ca02c'],
+        linewidth=2,
+        style='city',
+        markers=True
+    )
     
-    plt.title('Изменение температуры по городам (5 дней)', fontsize=14, pad=20)
+    plt.title('Динамика температуры по городам', fontsize=16, pad=20)
     plt.xlabel('Дата и время', fontsize=12)
     plt.ylabel('Температура (°C)', fontsize=12)
     plt.xticks(rotation=45)
-    
-    # Улучшаем легенду
-    plt.legend(title='Город', title_fontsize=12, fontsize=11)
-    
-    # Сохраняем график
-    plt.tight_layout()
-    plt.savefig('dashboard/figures/temperature.png', dpi=300, bbox_inches='tight')
-    plt.close()
-
-def plot_rain(df):
-    plt.figure(figsize=(10, 6))
-    sns.set_style("whitegrid")
-    
-    # Группируем данные по городам и суммируем осадки
-    rain_data = df.groupby('city')['rain_mm'].sum().reset_index()
-    
-    # График осадков
-    ax = sns.barplot(data=rain_data, x='city', y='rain_mm', 
-                     palette=['#1f77b4', '#ff7f0e', '#2ca02c'], edgecolor='black')
-    
-    plt.title('Суммарные осадки по городам (5 дней)', fontsize=14, pad=20)
-    plt.xlabel('Город', fontsize=12)
-    plt.ylabel('Осадки (мм)', fontsize=12)
-    
-    # Добавляем значения на столбцы
-    for p in ax.patches:
-        ax.annotate(f"{p.get_height():.2f} мм", 
-                   (p.get_x() + p.get_width() / 2., p.get_height()), 
-                   ha='center', va='center', xytext=(0, 10), 
-                   textcoords='offset points', fontsize=11)
+    plt.legend(title='Город', title_fontsize=12, fontsize=11, bbox_to_anchor=(1.05, 1), loc='upper left')
     
     plt.tight_layout()
-    plt.savefig('dashboard/figures/rain.png', dpi=300, bbox_inches='tight')
+    plt.savefig('dashboard/figures/temperature_trend.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-def plot_humidity_pressure(df):
-    plt.figure(figsize=(14, 7))
-    sns.set_style("darkgrid")
+def plot_weather_wordcloud(df):
+    """2. Облако тегов погодных условий (WordCloud)"""
+    from collections import Counter
     
-    # Два подграфика
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
+    # Собираем все описания погоды
+    weather_text = ' '.join(df['weather'].dropna())
+    word_counts = Counter(weather_text.split())
     
-    # Влажность
-    sns.lineplot(data=df, x='datetime', y='humidity', hue='city', 
-                 palette=['#1f77b4', '#ff7f0e', '#2ca02c'], ax=ax1)
-    ax1.set_title('Влажность по городам', fontsize=13)
-    ax1.set_xlabel('')
-    ax1.set_ylabel('Влажность (%)', fontsize=11)
-    ax1.legend(title='Город')
+    # Создаем облако слов
+    wordcloud = WordCloud(
+        width=800,
+        height=400,
+        background_color='white',
+        colormap='viridis',
+        max_words=50
+    ).generate_from_frequencies(word_counts)
     
-    # Давление
-    sns.lineplot(data=df, x='datetime', y='pressure', hue='city', 
-                 palette=['#1f77b4', '#ff7f0e', '#2ca02c'], ax=ax2)
-    ax2.set_title('Атмосферное давление по городам', fontsize=13)
-    ax2.set_xlabel('Дата и время', fontsize=11)
-    ax2.set_ylabel('Давление (гПа)', fontsize=11)
-    ax2.legend(title='Город')
+    plt.figure(figsize=(12, 6))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.title('Частота погодных условий', fontsize=16, pad=20)
+    plt.axis('off')
     
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.savefig('dashboard/figures/humidity_pressure.png', dpi=300, bbox_inches='tight')
+    plt.savefig('dashboard/figures/weather_wordcloud.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-def plot_weather_stats(df):
-    # Создаем сводную статистику
-    stats = df.groupby('city').agg({
-        'temp_c': ['mean', 'max', 'min'],
-        'rain_mm': 'sum',
-        'wind_speed_kmh': 'mean'
-    }).reset_index()
+def plot_interactive_temp_map(df):
+    """3. Интерактивная карта температур (Plotly)"""
+    # Создаем усредненные данные по городам
+    avg_temp = df.groupby('city', as_index=False)['temp_c'].mean()
     
-    stats.columns = ['Город', 'Средняя темп.', 'Макс. темп.', 'Мин. темп.', 
-                    'Сумма осадков', 'Ср. скорость ветра']
+    # Координаты городов (широта, долгота)
+    city_coords = {
+        'Москва': [55.7558, 37.6173],
+        'Санкт-Петербург': [59.9343, 30.3351],
+        'Самара': [53.1951, 50.1009]
+    }
     
-    # Создаем таблицу
-    plt.figure(figsize=(10, 4))
-    ax = plt.subplot(111, frame_on=False)
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
+    avg_temp['lat'] = avg_temp['city'].map(lambda x: city_coords[x][0])
+    avg_temp['lon'] = avg_temp['city'].map(lambda x: city_coords[x][1])
     
-    table = plt.table(cellText=stats.values,
-                     colLabels=stats.columns,
-                     loc='center',
-                     cellLoc='center',
-                     colColours=['#f7f7f7']*len(stats.columns))
+    fig = px.scatter_mapbox(
+        avg_temp,
+        lat='lat',
+        lon='lon',
+        size='temp_c',
+        color='temp_c',
+        hover_name='city',
+        hover_data={'temp_c': ':.1f'},
+        size_max=30,
+        zoom=3,
+        color_continuous_scale=px.colors.sequential.Tealrose,
+        title='Средняя температура по городам'
+    )
     
-    table.auto_set_font_size(False)
-    table.set_fontsize(12)
-    table.scale(1.2, 1.5)
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":40,"l":0,"b":0},
+        title_x=0.5,
+        title_font_size=20
+    )
     
-    plt.title('Сводная статистика по погоде (5 дней)', fontsize=14, pad=20)
-    plt.savefig('dashboard/figures/weather_stats.png', dpi=300, bbox_inches='tight')
-    plt.close()
+    fig.write_html('dashboard/figures/interactive_temp_map.html')
 
-def main():
-    # Загрузка и подготовка данных
-    df = load_and_prepare_data()
-    
-    # Создание графиков
-    plot_temperature(df)
-    plot_rain(df)
-    plot_humidity_pressure(df)
-    plot_weather_stats(df)
-    
-    print("Графики успешно сохранены в папку dashboard/figures/")
-
-if __name__ == "__main__":
-    main()
+def generate_visualizations(df):
+    """Генерация всех визуализаций"""
+    plot_temperature_trend(df)
+    plot_weather_wordcloud(df)
+    plot_interactive_temp_map(df)
+    print("Визуализации успешно сохранены в папку dashboard/figures/")

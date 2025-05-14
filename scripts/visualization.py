@@ -59,20 +59,14 @@ def plot_weather_wordcloud(df):
     plt.close()
 
 def plot_interactive_temp_map(df):
-    """3. Интерактивная карта температур (Plotly)"""
-    # Создаем усредненные данные по городам
     avg_temp = df.groupby('city', as_index=False)['temp_c'].mean()
-    
-    # Координаты городов (широта, долгота)
     city_coords = {
         'Москва': [55.7558, 37.6173],
         'Санкт-Петербург': [59.9343, 30.3351],
         'Самара': [53.1951, 50.1009]
     }
-    
     avg_temp['lat'] = avg_temp['city'].map(lambda x: city_coords[x][0])
     avg_temp['lon'] = avg_temp['city'].map(lambda x: city_coords[x][1])
-    
     fig = px.scatter_mapbox(
         avg_temp,
         lat='lat',
@@ -83,17 +77,15 @@ def plot_interactive_temp_map(df):
         hover_data={'temp_c': ':.1f'},
         size_max=30,
         zoom=3,
-        color_continuous_scale=px.colors.sequential.Tealrose,
+        color_continuous_scale=px.colors.sequential.Plasma,  # Исправлено!
         title='Средняя температура по городам'
     )
-    
     fig.update_layout(
         mapbox_style="open-street-map",
-        margin={"r":0,"t":40,"l":0,"b":0},
+        margin={'r':0,'t':40,'l':0,'b':0},
         title_x=0.5,
         title_font_size=20
     )
-    
     fig.write_html('dashboard/figures/interactive_temp_map.html')
 
 def generate_visualizations(df):

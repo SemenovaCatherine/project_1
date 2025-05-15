@@ -77,7 +77,7 @@ def plot_interactive_temp_map(df):
         hover_data={'temp_c': ':.1f'},
         size_max=30,
         zoom=3,
-        color_continuous_scale=px.colors.sequential.Plasma,  # Исправлено!
+        color_continuous_scale=px.colors.sequential.Tealgrn,  
         title='Средняя температура по городам'
     )
     fig.update_layout(

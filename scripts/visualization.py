@@ -94,3 +94,9 @@ def generate_visualizations(df):
     plot_weather_wordcloud(df)
     plot_interactive_temp_map(df)
     print("Визуализации успешно сохранены в папку dashboard/figures/")
+
+generate_visualizations(df_all)
+from google.colab import files
+files.download('dashboard/figures/temperature_trend.png')
+files.download('dashboard/figures/weather_wordcloud.png')
+files.download('dashboard/figures/interactive_temp_map.html')

@@ -15,3 +15,11 @@ _Проект выполнинли:_
 Удобное сравнение погоды в разных городах.
 
 В ходе проекта мы рассчитали ключевые метрики: средняя, минимальная и максимальная температура, сумма осадков; Провели аналитику и выявили, что наибольшая средняя температура зафиксирована в Самаре (15.5°C), наименьшая — в Санкт-Петербурге (10.4°C), Москва оказалась самым дождливым городом (17.3 мм осадков), тогда как в Петербурге выпало всего 3.4 мм.
+
+Установка и запуск
+git clone git@github.com:SemenovaCatherine/project_1.git && cd project_1 && \
+python -m venv venv && \
+source venv/bin/activate && \
+echo "e19341656f7539e9ac6553c950159dc4" > .env && \  
+pip install -r requirements.txt || pip install pandas numpy matplotlib seaborn plotly wordcloud requests jupyter && \
+streamlit run dashboard/app.py

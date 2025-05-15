@@ -20,7 +20,6 @@ _Проект выполнинли:_
 
 git clone git@github.com:SemenovaCatherine/project_1.git && cd project_1 && \
 python -m venv venv && \
-source venv/bin/activate && \
-echo "e19341656f7539e9ac6553c950159dc4" > .env && \  
+source venv/bin/activate && \  # venv\Scripts\activate для Windows
 pip install -r requirements.txt || pip install pandas numpy matplotlib seaborn plotly wordcloud requests jupyter && \
 streamlit run dashboard/app.py

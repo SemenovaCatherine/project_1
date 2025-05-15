@@ -22,5 +22,5 @@ _Проект выполнинли:_
 git clone git@github.com:SemenovaCatherine/project_1.git && cd project_1 && \
 python -m venv venv && \
 source venv/bin/activate && \
-pip install -r requirements.txt || pip install pandas numpy matplotlib seaborn plotly wordcloud requests jupyter streamlit && \
+pip install -r requirements.txt 
 streamlit run dashboard/app.py
